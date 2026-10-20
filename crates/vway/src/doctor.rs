@@ -196,13 +196,19 @@ pub fn run() -> (Value, bool) {
         Err(e) => c.add("xkb_keymap", true, false, e, Some(Pkg::XkbData)),
     }
 
-    match agents::which_in(&path, "dbus-daemon") {
+    // Sessions start `dbus-daemon`, or dbus-broker when that is all there is.
+    match ["dbus-daemon", "dbus-broker-launch"]
+        .iter()
+        .find_map(|d| agents::which_in(&path, d))
+    {
         Some(p) => c.add("dbus_daemon", false, true, p.display().to_string(), None),
         None => c.add(
             "dbus_daemon",
             false,
             false,
-            "not found: sessions fall back to no private bus (--dbus none/host)".into(),
+            "neither dbus-daemon nor dbus-broker-launch found: sessions fall back to no private \
+             bus (--dbus none/host)"
+                .into(),
             Some(Pkg::Dbus),
         ),
     }

@@ -105,7 +105,10 @@ fn lifecycle_start_status_stop() {
 
     let stopped = h.ok(&["stop", "-s", "life"]);
     assert_eq!(stopped["exit"]["reason"], "shutdown_request");
-    assert!(!pid_alive(sup_pid), "supervisor gone");
+    // `stop` returns once the lock is released; the process exits right after.
+    wait_until("supervisor exit", Duration::from_secs(1), || {
+        !pid_alive(sup_pid)
+    });
     wait_until("app exit", Duration::from_secs(2), || !pid_alive(app_pid));
     let dir = h.session_dir("life");
     assert!(!dir.join("ctl.sock").exists());
@@ -419,7 +422,7 @@ fn environment_is_isolated() {
     assert_eq!(vars["VWAY_SESSION"], "iso");
     let bus = vars["DBUS_SESSION_BUS_ADDRESS"].as_str().unwrap_or("");
     let has_dbus = std::env::split_paths(&std::env::var_os("PATH").unwrap())
-        .any(|d| d.join("dbus-daemon").is_file());
+        .any(|d| d.join("dbus-daemon").is_file() || d.join("dbus-broker-launch").is_file());
     if has_dbus {
         assert!(bus.contains(dir.to_str().unwrap()), "private bus: {bus}");
     }
