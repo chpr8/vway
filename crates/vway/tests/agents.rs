@@ -153,6 +153,9 @@ fn setup_installs_skills_for_detected_agents_and_is_idempotent() {
         let s = h.read(rel);
         assert!(s.starts_with(&stub), "{rel}");
         assert!(s.contains("installed by `vway agents setup`"), "{rel}");
+        // vway is not on this PATH, so the skill names the binary.
+        let exe = vway_bin().canonicalize().unwrap();
+        assert!(s.contains(&format!("run it as `{}`", exe.display())), "{s}");
     }
 
     let v = h.ok(&["agents", "setup"]);

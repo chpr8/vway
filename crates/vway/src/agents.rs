@@ -22,9 +22,15 @@ pub const GUIDE: &str = include_str!("../agent/guide.md");
 const NAME: &str = "vway";
 const MARKER: &str = "<!-- installed by `vway agents setup`; `vway agents remove` deletes it -->";
 
-/// The SKILL.md that `setup` writes: the stub plus the ownership marker.
-pub fn installed_skill() -> String {
-    format!("{SKILL}\n{MARKER}\n")
+/// The SKILL.md that `setup` writes: the stub, where this vway is, and the ownership marker.
+/// Agents started by desktop apps often get a shorter PATH than a terminal, so the stub alone
+/// can leave them unable to find `vway`.
+pub fn installed_skill(program: &Path) -> String {
+    format!(
+        "{SKILL}\nIf `vway` is not on PATH (agents started from desktop apps often get a shorter PATH \
+         than a terminal), run it as `{}`.\n\n{MARKER}\n",
+        program.display()
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -263,6 +269,12 @@ pub fn run(
     };
     let loc = locate(&ctx.path);
     let command = command.unwrap_or_else(|| loc.command.clone());
+    // `vway` itself says nothing to an agent whose PATH lacks it.
+    let content = installed_skill(if command == NAME {
+        &loc.exe
+    } else {
+        Path::new(&command)
+    });
     let mut warnings: Vec<String> = Vec::new();
     if matches!(mode, Mode::Setup { mcp: true, .. }) {
         warnings.extend(loc.warning.clone());
@@ -278,7 +290,7 @@ pub fn run(
     let want_shared = !shared.is_empty() || selected.is_empty();
     if want_shared {
         let dir = ctx.base().join(".agents/skills").join(NAME);
-        items.push(skill(&dir, shared, mode, dry_run));
+        items.push(skill(&dir, &content, shared, mode, dry_run));
     }
     if selected.contains(&Agent::Claude) {
         let dir = match &ctx.project {
@@ -286,7 +298,7 @@ pub fn run(
             None => ctx.claude_home().join("skills"),
         }
         .join(NAME);
-        items.push(skill(&dir, vec![Agent::Claude], mode, dry_run));
+        items.push(skill(&dir, &content, vec![Agent::Claude], mode, dry_run));
     }
     let do_mcp = !matches!(mode, Mode::Setup { mcp: false, .. });
     if do_mcp {
@@ -334,12 +346,12 @@ pub fn run(
 
 // ---- skills -------------------------------------------------------------------------------------
 
-fn skill_state(dir: &Path) -> &'static str {
+fn skill_state(dir: &Path, content: &str) -> &'static str {
     match std::fs::symlink_metadata(dir) {
         Err(_) => "missing",
         Ok(m) if m.file_type().is_symlink() || !m.is_dir() => "foreign",
         Ok(_) => match std::fs::read_to_string(dir.join("SKILL.md")) {
-            Ok(s) if s == installed_skill() => "current",
+            Ok(s) if s == content => "current",
             Ok(s) if s.contains(MARKER) => "outdated",
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => "missing",
             _ => "foreign",
@@ -347,8 +359,8 @@ fn skill_state(dir: &Path) -> &'static str {
     }
 }
 
-fn skill(dir: &Path, agents: Vec<Agent>, mode: Mode, dry_run: bool) -> Item {
-    let state = skill_state(dir);
+fn skill(dir: &Path, content: &str, agents: Vec<Agent>, mode: Mode, dry_run: bool) -> Item {
+    let state = skill_state(dir, content);
     let mut item = Item {
         kind: "skill",
         agents,
@@ -381,8 +393,8 @@ fn skill(dir: &Path, agents: Vec<Agent>, mode: Mode, dry_run: bool) -> Item {
     item.action = Some(action);
     let result = match action {
         _ if dry_run => Ok(()),
-        "created" | "updated" => write_skill(dir),
-        "replaced" => remove_any(dir).and_then(|()| write_skill(dir)),
+        "created" | "updated" => write_skill(dir, content),
+        "replaced" => remove_any(dir).and_then(|()| write_skill(dir, content)),
         "removed" => remove_skill(dir),
         _ => Ok(()),
     };
@@ -393,9 +405,9 @@ fn skill(dir: &Path, agents: Vec<Agent>, mode: Mode, dry_run: bool) -> Item {
     item
 }
 
-fn write_skill(dir: &Path) -> std::io::Result<()> {
+fn write_skill(dir: &Path, content: &str) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
-    write_atomic(&dir.join("SKILL.md"), installed_skill().as_bytes())
+    write_atomic(&dir.join("SKILL.md"), content.as_bytes())
 }
 
 fn remove_skill(dir: &Path) -> std::io::Result<()> {

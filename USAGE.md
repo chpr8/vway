@@ -172,7 +172,7 @@ first) and `--timeout-ms`.
 | `stop` / `stop --all` | stop sessions; prints the exit reason |
 | `list [--all]` | sessions; `--all` includes stopped ones |
 | `gc` | remove directories of stopped sessions |
-| `doctor` | host checks: state root, socket paths, `vway` on `PATH`, xkb, a D-Bus daemon, render node, Vulkan loader, lavapipe, Mesa EGL, agent skill. Failed checks carry a `fix` command for the detected distribution, and `install` combines them |
+| `doctor` | host checks: state root, socket paths, `vway` on `PATH` and on the desktop session's `PATH`, xkb, a D-Bus daemon, render node, Vulkan loader, lavapipe, Mesa EGL, agent skill. Failed checks carry a `fix` command for the detected distribution, and `install` combines them |
 | `mcp [--allow PROG\|DIR/] [--image-limit L]` | MCP server on stdio |
 | `agents setup\|status\|remove` | connect coding agents (see [below](#coding-agents-vway-agents-vway-guide)) |
 | `guide [--skill]` | print the agent guide (Markdown) |

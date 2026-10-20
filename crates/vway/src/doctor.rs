@@ -191,6 +191,22 @@ pub fn run() -> (Value, bool) {
     }
     c.add("vway_on_path", false, loc.path_runs_this, detail, None);
 
+    // Apps started from the desktop, and the agents they run, get the systemd user manager's PATH,
+    // which login and session scripts often leave shorter than a terminal's.
+    if let Some(desktop) = desktop_path() {
+        let found = agents::which_in(&desktop, "vway");
+        let detail = match &found {
+            Some(p) => format!("apps started from the desktop run {}", p.display()),
+            None => format!(
+                "not on the desktop session's PATH: apps started from the desktop (and agents they \
+                 run) won't find `vway`, except through the full path in the skill `vway agents \
+                 setup` installs. Add {} to the PATH your session manager exports",
+                loc.exe.parent().unwrap_or(Path::new("/")).display()
+            ),
+        };
+        c.add("vway_on_desktop_path", false, found.is_some(), detail, None);
+    }
+
     match vway_compositor::keymap::ReverseKeymap::new("us", "") {
         Ok(_) => c.add("xkb_keymap", true, true, "us layout compiles".into(), None),
         Err(e) => c.add("xkb_keymap", true, false, e, Some(Pkg::XkbData)),
@@ -311,6 +327,20 @@ pub fn run() -> (Value, bool) {
         v["install"] = json!(format!("{} {}", f.install(), pkgs.join(" ")));
     }
     (v, c.ok)
+}
+
+/// The systemd user manager's PATH, if there is one to ask.
+fn desktop_path() -> Option<Vec<PathBuf>> {
+    let out = std::process::Command::new("systemctl")
+        .args(["--user", "show-environment"])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())?;
+    let env = String::from_utf8_lossy(&out.stdout);
+    let path = env.lines().find_map(|l| l.strip_prefix("PATH="))?;
+    Some(std::env::split_paths(path).collect())
 }
 
 #[cfg(test)]
