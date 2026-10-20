@@ -183,6 +183,25 @@ fn setup_installs_skills_for_detected_agents_and_is_idempotent() {
 }
 
 #[test]
+fn claude_config_dir_is_respected() {
+    let h = Home::new();
+    let dir = h.home().join(".config/claude");
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let path = [h.root.join("bin")];
+    let mut c = h.cmd_with(&vway_bin(), &path, &["agents", "setup"]);
+    c.env("CLAUDE_CONFIG_DIR", &dir);
+    let v = Harness::parse(&mut c).json;
+    assert_eq!(v["detected"], json!(["claude"]), "{v:#}");
+    item(&v, "skill", ".config/claude/skills/vway/SKILL.md");
+    assert!(
+        h.read("home/.config/claude/skills/vway/SKILL.md")
+            .starts_with(&installed_skill())
+    );
+    assert!(!h.home().join(".claude").exists());
+}
+
+#[test]
 fn foreign_skills_are_left_alone_unless_forced() {
     let h = Home::new();
     let dir = h.home().join(".agents/skills/vway");

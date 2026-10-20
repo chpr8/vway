@@ -2,8 +2,9 @@
 //!
 //! Package managers cannot write into the user's home, so this is an explicit, idempotent step.
 //! Skills use the Agent Skills layout (`<root>/vway/SKILL.md`): `.agents/skills` is read by Codex,
-//! Cursor, Gemini CLI and OpenCode, `.claude/skills` by Claude Code. The installed skill is a short
-//! stub that sends the agent to `vway guide`, so it does not go stale when vway is upgraded.
+//! Cursor, Gemini CLI and OpenCode, `.claude/skills` (or `$CLAUDE_CONFIG_DIR/skills`) by Claude
+//! Code. The installed skill is a short stub that sends the agent to `vway guide`, so it does not
+//! go stale when vway is upgraded.
 
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -68,7 +69,7 @@ impl Agent {
 
     fn config_dir(self, ctx: &Ctx) -> PathBuf {
         match self {
-            Agent::Claude => ctx.home.join(".claude"),
+            Agent::Claude => ctx.claude_home(),
             Agent::Codex => ctx.codex_home.clone(),
             Agent::Gemini => ctx.home.join(".gemini"),
             Agent::Cursor => ctx.home.join(".cursor"),
@@ -82,6 +83,8 @@ pub struct Ctx {
     pub home: PathBuf,
     pub config_home: PathBuf,
     pub codex_home: PathBuf,
+    /// `$CLAUDE_CONFIG_DIR`, when set; Claude Code then keeps `.claude.json` there too.
+    pub claude_config_dir: Option<PathBuf>,
     pub path: Vec<PathBuf>,
     /// `Some` for `--project`: install into this directory instead of the home.
     pub project: Option<PathBuf>,
@@ -108,6 +111,7 @@ impl Ctx {
         Ok(Ctx {
             config_home: var("XDG_CONFIG_HOME").unwrap_or_else(|| home.join(".config")),
             codex_home: var("CODEX_HOME").unwrap_or_else(|| home.join(".codex")),
+            claude_config_dir: var("CLAUDE_CONFIG_DIR"),
             path: std::env::var_os("PATH")
                 .map(|p| std::env::split_paths(&p).collect())
                 .unwrap_or_default(),
@@ -118,6 +122,12 @@ impl Ctx {
 
     fn base(&self) -> &Path {
         self.project.as_deref().unwrap_or(&self.home)
+    }
+
+    fn claude_home(&self) -> PathBuf {
+        self.claude_config_dir
+            .clone()
+            .unwrap_or_else(|| self.home.join(".claude"))
     }
 
     fn which(&self, prog: &str) -> Option<PathBuf> {
@@ -271,7 +281,11 @@ pub fn run(
         items.push(skill(&dir, shared, mode, dry_run));
     }
     if selected.contains(&Agent::Claude) {
-        let dir = ctx.base().join(".claude/skills").join(NAME);
+        let dir = match &ctx.project {
+            Some(p) => p.join(".claude/skills"),
+            None => ctx.claude_home().join("skills"),
+        }
+        .join(NAME);
         items.push(skill(&dir, vec![Agent::Claude], mode, dry_run));
     }
     let do_mcp = !matches!(mode, Mode::Setup { mcp: false, .. });
@@ -432,7 +446,12 @@ fn config(ctx: &Ctx, a: Agent, command: &str) -> Config {
     let std_entry = json!({ "command": command, "args": ["mcp"] });
     let json = |file: PathBuf, table, entry| Config::Json { file, table, entry };
     match (a, &ctx.project) {
-        (Agent::Claude, None) => Config::ClaudeUser(ctx.home.join(".claude.json")),
+        (Agent::Claude, None) => Config::ClaudeUser(
+            ctx.claude_config_dir
+                .as_deref()
+                .unwrap_or(&ctx.home)
+                .join(".claude.json"),
+        ),
         (Agent::Claude, Some(p)) => json(
             p.join(".mcp.json"),
             "mcpServers",
