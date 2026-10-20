@@ -347,11 +347,13 @@ yourself.
 
 | Agent | Skill | MCP server (`--mcp`), user / `--project` |
 | --- | --- | --- |
-| Claude Code | `~/.claude/skills/vway` | `claude mcp add -s user` / `.mcp.json` |
+| Claude Code | `~/.claude/skills/vway` (`$CLAUDE_CONFIG_DIR/skills/vway`) | `claude mcp add -s user` / `.mcp.json` |
 | Codex | `~/.agents/skills/vway` | `~/.codex/config.toml` (`$CODEX_HOME`) / `.codex/config.toml` |
 | Gemini CLI | `~/.agents/skills/vway` | `~/.gemini/settings.json` / `.gemini/settings.json` |
 | Cursor | `~/.agents/skills/vway` | `~/.cursor/mcp.json` / `.cursor/mcp.json` |
 | OpenCode | `~/.agents/skills/vway` | `~/.config/opencode/opencode.json` / `opencode.json` |
+| pi | `~/.agents/skills/vway` | none: pi has no MCP client |
+| dsh | `~/.agents/skills/vway` | none: uses the skill |
 
 With `--project`, skills go to `.agents/skills/vway` and `.claude/skills/vway` in the project.
 
@@ -361,7 +363,7 @@ With `--project`, skills go to `.agents/skills/vway` and `.claude/skills/vway` i
   reported and left alone; `--force` replaces it. An MCP entry named `vway` with a different
   command is handled the same way. JSON files with comments are never rewritten; the item tells
   you what to add by hand.
-- **Claude Code's user config** (`~/.claude.json`) is only read; changes go through `claude mcp`.
+- **Claude Code's user config** (`~/.claude.json`, or `$CLAUDE_CONFIG_DIR/.claude.json`) is only read; changes go through `claude mcp`.
 - **The registered command** is `vway` when `PATH` runs this binary. For mise installs it is the
   mise shim, which keeps working across upgrades and without `mise activate`. Otherwise it is this
   binary's absolute path, with a warning. `--command` sets it explicitly, e.g.

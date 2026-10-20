@@ -364,8 +364,8 @@ struct AgentTargets {
     /// Use this project (default: the current directory) instead of your home directory
     #[arg(long, value_name = "DIR", num_args = 0..=1, default_missing_value = ".")]
     project: Option<PathBuf>,
-    /// Only these agents: claude, codex, gemini, cursor, opencode [default: setup uses the ones
-    /// found here, status and remove all of them]
+    /// Only these agents: claude, codex, gemini, cursor, opencode, pi, dsh [default: setup uses
+    /// the ones found here, status and remove all of them]
     #[arg(long = "agent", value_name = "NAME", value_delimiter = ',')]
     agents: Vec<String>,
 }
@@ -1132,7 +1132,9 @@ fn cmd_agents(cmd: AgentsCmd) -> Result<Outcome, ErrorBody> {
             Agent::parse(a).ok_or_else(|| {
                 err(
                     ErrorCode::Usage,
-                    format!("unknown agent {a:?} (claude, codex, gemini, cursor, opencode)"),
+                    format!(
+                        "unknown agent {a:?} (claude, codex, gemini, cursor, opencode, pi, dsh)"
+                    ),
                 )
             })
         })

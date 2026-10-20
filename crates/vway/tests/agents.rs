@@ -205,6 +205,26 @@ fn claude_config_dir_is_respected() {
 }
 
 #[test]
+fn pi_and_dsh_use_the_shared_skill() {
+    let h = Home::new();
+    let pi = h.home().join(".config/pi");
+    std::fs::create_dir_all(&pi).unwrap();
+    std::fs::create_dir_all(h.home().join(".dsh")).unwrap();
+
+    let path = [h.root.join("bin")];
+    let mut c = h.cmd_with(&vway_bin(), &path, &["agents", "setup", "--mcp"]);
+    c.env("PI_CODING_AGENT_DIR", &pi);
+    let v = Harness::parse(&mut c).json;
+    assert_eq!(v["detected"], json!(["pi", "dsh"]), "{v:#}");
+    let shared = item(&v, "skill", ".agents/skills/vway/SKILL.md");
+    assert_eq!(shared["agents"], json!(["pi", "dsh"]));
+    assert_eq!(actions(&v), ["created"], "no MCP entries: {v:#}");
+    let warnings = v["warnings"].to_string();
+    assert!(warnings.contains("pi: no MCP registration"), "{v:#}");
+    assert!(warnings.contains("dsh: no MCP registration"), "{v:#}");
+}
+
+#[test]
 fn foreign_skills_are_left_alone_unless_forced() {
     let h = Home::new();
     let dir = h.home().join(".agents/skills/vway");

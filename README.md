@@ -75,7 +75,7 @@ install into the project: `cargo install --locked --root .tools vway` gives `.to
 Installers can't write to your home directory, so connecting agents is one explicit step:
 
 ```console
-vway agents setup          # the skill, for every agent found (Claude Code, Codex, Cursor, Gemini CLI, OpenCode)
+vway agents setup          # the skill, for every agent found (Claude Code, Codex, Cursor, Gemini CLI, OpenCode, pi, dsh)
 vway agents setup --mcp    # … and register `vway mcp` as an MCP server
 vway agents setup --project --mcp   # into this project (.agents/skills, .claude/skills, .mcp.json, …)
 vway agents status         # what is installed where;  vway agents remove  undoes setup

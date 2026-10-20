@@ -2,7 +2,7 @@
 //!
 //! Package managers cannot write into the user's home, so this is an explicit, idempotent step.
 //! Skills use the Agent Skills layout (`<root>/vway/SKILL.md`): `.agents/skills` is read by Codex,
-//! Cursor, Gemini CLI and OpenCode, `.claude/skills` (or `$CLAUDE_CONFIG_DIR/skills`) by Claude
+//! Cursor, Gemini CLI, OpenCode, pi and dsh, `.claude/skills` (or `$CLAUDE_CONFIG_DIR/skills`) by Claude
 //! Code. The installed skill is a short stub that sends the agent to `vway guide`, so it does not
 //! go stale when vway is upgraded.
 
@@ -41,15 +41,19 @@ pub enum Agent {
     Gemini,
     Cursor,
     Opencode,
+    Pi,
+    Dsh,
 }
 
 impl Agent {
-    pub const ALL: [Agent; 5] = [
+    pub const ALL: [Agent; 7] = [
         Agent::Claude,
         Agent::Codex,
         Agent::Gemini,
         Agent::Cursor,
         Agent::Opencode,
+        Agent::Pi,
+        Agent::Dsh,
     ];
 
     pub fn parse(s: &str) -> Option<Agent> {
@@ -63,6 +67,8 @@ impl Agent {
             Agent::Gemini => "gemini",
             Agent::Cursor => "cursor",
             Agent::Opencode => "opencode",
+            Agent::Pi => "pi",
+            Agent::Dsh => "dsh",
         }
     }
 
@@ -80,6 +86,8 @@ impl Agent {
             Agent::Gemini => ctx.home.join(".gemini"),
             Agent::Cursor => ctx.home.join(".cursor"),
             Agent::Opencode => ctx.config_home.join("opencode"),
+            Agent::Pi => ctx.pi_home.clone(),
+            Agent::Dsh => ctx.dsh_home.clone(),
         }
     }
 }
@@ -91,6 +99,8 @@ pub struct Ctx {
     pub codex_home: PathBuf,
     /// `$CLAUDE_CONFIG_DIR`, when set; Claude Code then keeps `.claude.json` there too.
     pub claude_config_dir: Option<PathBuf>,
+    pub pi_home: PathBuf,
+    pub dsh_home: PathBuf,
     pub path: Vec<PathBuf>,
     /// `Some` for `--project`: install into this directory instead of the home.
     pub project: Option<PathBuf>,
@@ -118,6 +128,8 @@ impl Ctx {
             config_home: var("XDG_CONFIG_HOME").unwrap_or_else(|| home.join(".config")),
             codex_home: var("CODEX_HOME").unwrap_or_else(|| home.join(".codex")),
             claude_config_dir: var("CLAUDE_CONFIG_DIR"),
+            pi_home: var("PI_CODING_AGENT_DIR").unwrap_or_else(|| home.join(".pi/agent")),
+            dsh_home: var("DSH_HOME").unwrap_or_else(|| home.join(".dsh")),
             path: std::env::var_os("PATH")
                 .map(|p| std::env::split_paths(&p).collect())
                 .unwrap_or_default(),
@@ -305,13 +317,20 @@ pub fn run(
         for a in &selected {
             if let Some(item) = mcp(ctx, *a, &command, mode, dry_run) {
                 items.push(item);
+            } else if matches!(mode, Mode::Setup { mcp: true, .. })
+                && config(ctx, *a, &command).is_none()
+            {
+                warnings.push(format!(
+                    "{}: no MCP registration; it uses the skill",
+                    a.name()
+                ));
             }
         }
     }
     if matches!(mode, Mode::Setup { .. }) && detected.is_empty() && only.is_empty() {
         warnings.push(
-            "no agent found (claude, codex, gemini, cursor-agent, opencode on PATH or their \
-             config directories); installed the skill in the shared .agents/skills only"
+            "no agent found (claude, codex, gemini, cursor-agent, opencode, pi, dsh on PATH or \
+             their config directories); installed the skill in the shared .agents/skills only"
                 .into(),
         );
     }
@@ -454,10 +473,13 @@ enum Config {
     Toml(PathBuf),
 }
 
-fn config(ctx: &Ctx, a: Agent, command: &str) -> Config {
+/// `None` for agents that use vway only through the skill: pi has no MCP client, and dsh's MCP
+/// configuration is not a stable file format.
+fn config(ctx: &Ctx, a: Agent, command: &str) -> Option<Config> {
     let std_entry = json!({ "command": command, "args": ["mcp"] });
     let json = |file: PathBuf, table, entry| Config::Json { file, table, entry };
-    match (a, &ctx.project) {
+    Some(match (a, &ctx.project) {
+        (Agent::Pi | Agent::Dsh, _) => return None,
         (Agent::Claude, None) => Config::ClaudeUser(
             ctx.claude_config_dir
                 .as_deref()
@@ -487,7 +509,7 @@ fn config(ctx: &Ctx, a: Agent, command: &str) -> Config {
             "mcp",
             json!({ "type": "local", "command": [command, "mcp"], "enabled": true }),
         ),
-    }
+    })
 }
 
 /// The command line of an existing entry, in any of the shapes above.
@@ -649,7 +671,7 @@ fn run_cli(argv: &[String]) -> Result<(), String> {
 
 fn mcp(ctx: &Ctx, a: Agent, command: &str, mode: Mode, dry_run: bool) -> Option<Item> {
     let want = vec![command.to_string(), "mcp".to_string()];
-    let cfg = config(ctx, a, command);
+    let cfg = config(ctx, a, command)?;
     let (target, existing): (String, Result<Option<Vec<String>>, String>) = match &cfg {
         Config::ClaudeUser(f) => (
             "claude mcp (user scope)".into(),
