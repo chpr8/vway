@@ -60,8 +60,12 @@ back the `tool_result` blocks it prints.
 
 - `--scale 1.5` / `--scale 2` for HiDPI (scales are multiples of 1/120). `--mobile` gives a 390×844
   phone at scale 3 with touch.
+- By default (`--gpu auto`) the app renders on the host's GPU with Vulkan or OpenGL, as on a real
+  desktop, so wgpu, Bevy and other 3D views work. `"renderer"` in `start`'s output (`gles` or
+  `pixman`) is how vway composites screenshots, not what the app may use. Try a GPU view before
+  calling it untestable.
 - `--gpu software` makes rendering deterministic (llvmpipe/lavapipe), at some cost in speed. Vulkan
-  apps such as GPUI need lavapipe; `vway doctor` says whether it is installed.
+  apps such as GPUI then need lavapipe; `vway doctor` says whether it is installed.
 - `--env K=V` sets app env (`K=` unsets). `launch`/`start` pass your environment and cwd to the app.
 - `--keymap de` to type through a different layout.
 - `wait window|frame|idle|exit` to synchronize; screenshots already wait up to 3 s for idle.
@@ -88,6 +92,12 @@ back the `tool_result` blocks it prints.
   - `timeout`: still starting (raise `--timeout-ms`) or not a Wayland app.
 - The session is isolated: a fresh `HOME`, a private D-Bus bus, no host display. Cargo, rustup and
   mise still find their toolchains. To use real user config, pass `--home host`.
+- A session has no desktop services: nothing answers on its D-Bus bus, so there are no portals
+  (file chooser, open URI, screenshot), no notification daemon, no tray and no keyring. An app that
+  opens its file dialog through the portal (GPUI does) gets an error or nothing; toolkits with a
+  built-in dialog may show that one instead. Test the code behind such a dialog another way and
+  tell the user what you couldn't see. Don't switch to `--dbus host` for it: the dialog or
+  notification would appear on the user's real desktop.
 - One app per session. For a second app, start another session (different `--id`).
 - Clean up with `vway stop -s ID` (or `vway stop --all`). `vway run` cleans up by itself.
 - If the host lacks something (no Vulkan driver, no lavapipe, no D-Bus), `vway doctor` names the
