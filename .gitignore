@@ -1,0 +1,14 @@
+# Internal design docs, research notes, and prototypes.
+docs/
+.vway/
+scratch/
+
+# Rust build artifacts and sandbox-local cargo home
+target/
+.cargo-home/
+*.log
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/

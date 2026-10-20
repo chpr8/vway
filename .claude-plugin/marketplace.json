@@ -1,0 +1,15 @@
+{
+  "name": "vway",
+  "description": "vway: headless Wayland desktops for agents testing GUI apps on Linux",
+  "owner": {
+    "name": "Chris",
+    "email": "chris@pr8.dev"
+  },
+  "plugins": [
+    {
+      "name": "vway",
+      "source": "./",
+      "description": "The vway skill and MCP server. Install the vway binary separately (cargo or mise)."
+    }
+  ]
+}

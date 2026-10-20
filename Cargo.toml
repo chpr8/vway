@@ -1,0 +1,25 @@
+[workspace]
+members = ["crates/vway-proto", "crates/vway-compositor", "crates/vway"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/chpr8/vway"
+rust-version = "1.88"
+
+[workspace.dependencies]
+vway-proto = { path = "crates/vway-proto", version = "0.1.0" }
+vway-compositor = { path = "crates/vway-compositor", version = "0.1.0" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+libc = "0.2"
+base64 = "0.22"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

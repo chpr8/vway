@@ -1,0 +1,13 @@
+{
+  "name": "vway",
+  "displayName": "vway",
+  "version": "0.1.0",
+  "description": "See and drive the GUI app you are building on a private headless Wayland desktop (Linux). Needs the vway binary on PATH.",
+  "author": { "name": "Chris", "email": "chris@pr8.dev" },
+  "repository": "https://github.com/chpr8/vway",
+  "license": "MIT OR Apache-2.0",
+  "keywords": ["wayland", "gui", "testing", "screenshots", "gpui", "linux"],
+  "mcpServers": {
+    "vway": { "command": "vway", "args": ["mcp"] }
+  }
+}

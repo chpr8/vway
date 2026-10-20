@@ -1,0 +1,31 @@
+[package]
+name = "vway"
+description = "Headless Wayland desktops for testing and driving GUI apps"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "../../README.md"
+keywords = ["wayland", "headless", "gui-testing", "screenshot", "mcp"]
+categories = ["command-line-utilities", "development-tools::testing"]
+
+[dependencies]
+vway-proto.workspace = true
+serde.workspace = true
+# Key order matters: stdout documents lead with "ok".
+serde_json = { workspace = true, features = ["preserve_order"] }
+libc.workspace = true
+base64.workspace = true
+clap = { version = "4", features = ["derive"] }
+
+# vway runs on Linux only. Elsewhere the compositor (and smithay) is left out, so the build stops at
+# the one clear `compile_error!` in lib.rs instead of deep inside a dependency.
+[target.'cfg(target_os = "linux")'.dependencies]
+vway-compositor.workspace = true
+
+[dev-dependencies]
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
+xkbcommon = "0.8"
+png = "0.17"

@@ -1,0 +1,12 @@
+vway
+Copyright 2026 the vway authors
+
+Licensed under the Apache License, Version 2.0 (LICENSE-APACHE) or the MIT license (LICENSE-MIT),
+at your option.
+
+vway is built on Smithay (https://github.com/Smithay/smithay, MIT) and the Rust crates listed in
+Cargo.lock, each under its own license.
+
+Prior art: py-Vwayland (https://github.com/llaa33219/py-Vwayland, Apache-2.0) explored a similar
+virtual Wayland desktop, but only provides a Python API. vway shares ideas with it but contains no
+code derived from it.

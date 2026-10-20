@@ -1,0 +1,57 @@
+name: release
+
+# Push a tag vX.Y.Z (matching the workspace version) to publish Linux binaries. The archive names
+# carry the target triple, so `mise use github:chpr8/vway` picks the right one.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-22.04
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-22.04-arm
+    # The oldest supported runner, so the binaries need only glibc 2.35.
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the tag matches the version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != v$version"; exit 1; }
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pkg-config libxkbcommon-dev libpixman-1-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p vway
+      - name: Package
+        run: |
+          name="vway-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp target/release/vway README.md USAGE.md LICENSE-MIT LICENSE-APACHE NOTICE "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*.tar.gz*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
