@@ -205,7 +205,7 @@ fn claude_config_dir_is_respected() {
 }
 
 #[test]
-fn pi_and_dsh_use_the_shared_skill() {
+fn pi_and_dsh_use_the_shared_skill_and_pi_gets_mcp() {
     let h = Home::new();
     let pi = h.home().join(".config/pi");
     std::fs::create_dir_all(&pi).unwrap();
@@ -218,9 +218,14 @@ fn pi_and_dsh_use_the_shared_skill() {
     assert_eq!(v["detected"], json!(["pi", "dsh"]), "{v:#}");
     let shared = item(&v, "skill", ".agents/skills/vway/SKILL.md");
     assert_eq!(shared["agents"], json!(["pi", "dsh"]));
-    assert_eq!(actions(&v), ["created"], "no MCP entries: {v:#}");
+    assert_eq!(actions(&v), ["created", "created"], "{v:#}");
+    let entry: Value = serde_json::from_str(&h.read("home/.config/pi/mcp.json")).unwrap();
+    assert_eq!(
+        entry["mcpServers"]["vway"]["args"],
+        json!(["mcp"]),
+        "{entry:#}"
+    );
     let warnings = v["warnings"].to_string();
-    assert!(warnings.contains("pi: no MCP registration"), "{v:#}");
     assert!(warnings.contains("dsh: no MCP registration"), "{v:#}");
 }
 

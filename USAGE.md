@@ -352,7 +352,7 @@ yourself.
 | Gemini CLI | `~/.agents/skills/vway` | `~/.gemini/settings.json` / `.gemini/settings.json` |
 | Cursor | `~/.agents/skills/vway` | `~/.cursor/mcp.json` / `.cursor/mcp.json` |
 | OpenCode | `~/.agents/skills/vway` | `~/.config/opencode/opencode.json` / `opencode.json` |
-| pi | `~/.agents/skills/vway` | none: pi has no MCP client |
+| pi | `~/.agents/skills/vway` | `~/.pi/agent/mcp.json` (`$PI_CODING_AGENT_DIR`) / `.pi/mcp.json` |
 | dsh | `~/.agents/skills/vway` | none: uses the skill |
 
 With `--project`, skills go to `.agents/skills/vway` and `.claude/skills/vway` in the project.

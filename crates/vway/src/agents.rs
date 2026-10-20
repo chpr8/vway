@@ -102,6 +102,8 @@ pub struct Ctx {
     pub pi_home: PathBuf,
     pub dsh_home: PathBuf,
     pub path: Vec<PathBuf>,
+    /// The desktop session's PATH, when a systemd user manager can be asked.
+    pub desktop_path: Option<Vec<PathBuf>>,
     /// `Some` for `--project`: install into this directory instead of the home.
     pub project: Option<PathBuf>,
 }
@@ -133,6 +135,7 @@ impl Ctx {
             path: std::env::var_os("PATH")
                 .map(|p| std::env::split_paths(&p).collect())
                 .unwrap_or_default(),
+            desktop_path: desktop_path(),
             home,
             project,
         })
@@ -184,6 +187,21 @@ pub struct Location {
     pub command: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub warning: Option<String>,
+}
+
+/// The systemd user manager's PATH, which apps started from the desktop get, if there is one to
+/// ask.
+pub fn desktop_path() -> Option<Vec<PathBuf>> {
+    let out = Command::new("systemctl")
+        .args(["--user", "show-environment"])
+        .stdin(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())?;
+    let env = String::from_utf8_lossy(&out.stdout);
+    let path = env.lines().find_map(|l| l.strip_prefix("PATH="))?;
+    Some(std::env::split_paths(path).collect())
 }
 
 pub fn locate(path: &[PathBuf]) -> Location {
@@ -279,7 +297,20 @@ pub fn run(
         (Mode::Setup { .. }, true) => detected.clone(),
         _ => Agent::ALL.to_vec(),
     };
-    let loc = locate(&ctx.path);
+    let mut loc = locate(&ctx.path);
+    // Apps started from the desktop, and the agents they run, resolve a bare `vway` on the
+    // session manager's PATH, not on this shell's.
+    if loc.command == NAME
+        && let Some(desktop) = &ctx.desktop_path
+        && which_in(desktop, NAME).is_none()
+    {
+        loc.command = loc.exe.to_string_lossy().into_owned();
+        loc.warning = Some(format!(
+            "vway is not on the desktop session's PATH; agents get the absolute path {} (run \
+             setup again after moving it)",
+            loc.exe.display()
+        ));
+    }
     let command = command.unwrap_or_else(|| loc.command.clone());
     // `vway` itself says nothing to an agent whose PATH lacks it.
     let content = installed_skill(if command == NAME {
@@ -473,13 +504,15 @@ enum Config {
     Toml(PathBuf),
 }
 
-/// `None` for agents that use vway only through the skill: pi has no MCP client, and dsh's MCP
-/// configuration is not a stable file format.
+/// `None` for agents that use vway only through the skill: dsh's MCP servers are configured
+/// through its plugin patches, not a file of servers.
 fn config(ctx: &Ctx, a: Agent, command: &str) -> Option<Config> {
     let std_entry = json!({ "command": command, "args": ["mcp"] });
     let json = |file: PathBuf, table, entry| Config::Json { file, table, entry };
     Some(match (a, &ctx.project) {
-        (Agent::Pi | Agent::Dsh, _) => return None,
+        (Agent::Dsh, _) => return None,
+        (Agent::Pi, None) => json(ctx.pi_home.join("mcp.json"), "mcpServers", std_entry),
+        (Agent::Pi, Some(p)) => json(p.join(".pi/mcp.json"), "mcpServers", std_entry),
         (Agent::Claude, None) => Config::ClaudeUser(
             ctx.claude_config_dir
                 .as_deref()
